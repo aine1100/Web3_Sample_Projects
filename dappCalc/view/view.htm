@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Simple DApp Calculator</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 40px;
+      background-color: #f0f0f0;
+    }
+    input {
+      padding: 8px;
+      margin: 10px;
+      width: 100px;
+    }
+    button {
+      padding: 10px 15px;
+      margin: 10px;
+      font-weight: bold;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧮 Simple DApp Calculator</h1>
+  <input type="number" id="a" placeholder="Number A">
+  <input type="number" id="b" placeholder="Number B"><br>
+
+  <button onclick="calculate('add')">Add</button>
+  <button onclick="calculate('sub')">Subtract</button>
+  <button onclick="calculate('mul')">Multiply</button>
+  <button onclick="calculate('div')">Divide</button>
+
+  <div id="result">Result: N/A</div>
+
+  <script>
+    // ABI from your compiled contract
+    const abi = [
+      {
+        "inputs": [{"internalType": "int256","name": "a","type": "int256"},{"internalType": "int256","name": "b","type": "int256"}],
+        "name": "add",
+        "outputs": [{"internalType": "int256","name": "","type": "int256"}],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{"internalType": "int256","name": "a","type": "int256"},{"internalType": "int256","name": "b","type": "int256"}],
+        "name": "sub",
+        "outputs": [{"internalType": "int256","name": "","type": "int256"}],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{"internalType": "int256","name": "a","type": "int256"},{"internalType": "int256","name": "b","type": "int256"}],
+        "name": "mul",
+        "outputs": [{"internalType": "int256","name": "","type": "int256"}],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{"internalType": "int256","name": "a","type": "int256"},{"internalType": "int256","name": "b","type": "int256"}],
+        "name": "div",
+        "outputs": [{"internalType": "int256","name": "","type": "int256"}],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getResult",
+        "outputs": [{"internalType": "int256","name": "","type": "int256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
+
+    const contractAddress = "0x4D0e8c3C041DF2e638192760B768c3C6aF58cde2";
+    let contract;
+    let userAccount;
+
+    window.addEventListener('load', async () => {
+      if (window.ethereum) {
+        window.web3 = new Web3(window.ethereum);
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const accounts = await web3.eth.getAccounts();
+        userAccount = accounts[0];
+        contract = new web3.eth.Contract(abi, contractAddress);
+        console.log("Connected to contract at:", contractAddress);
+      } else {
+        alert("Please install MetaMask to use this DApp.");
+      }
+    });
+
+    async function calculate(operation) {
+      const a = parseInt(document.getElementById('a').value);
+      const b = parseInt(document.getElementById('b').value);
+      if (isNaN(a) || isNaN(b)) {
+        alert("Please enter valid numbers.");
+        return;
+      }
+
+      try {
+        await contract.methods[operation](a, b).send({ from: userAccount });
+        const result = await contract.methods.getResult().call();
+        document.getElementById('result').innerText = "Result: " + result;
+      } catch (err) {
+        console.error(err);
+        alert("Transaction failed.");
+      }
+    }
+  </script>
+</body>
+</html>
