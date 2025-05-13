@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Web3 from "web3";
+
 import HelloWorld from "../../backend/build/contracts/HelloWorld.json";
 
 const App = () => {
@@ -7,26 +8,62 @@ const App = () => {
   const [contract, setContract] = useState(null);
   const [input, setInput] = useState("");
   const [message, setMessage] = useState("");
+  const [isConnected, setIsConnected] = useState(false);
+
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        setAccount(accounts[0]);
+        setIsConnected(true);
+        return accounts[0];
+      } catch (error) {
+        console.error("User denied account access");
+        return null;
+      }
+    } else {
+      console.error("Please install MetaMask!");
+      return null;
+    }
+  };
 
   useEffect(() => {
     const loadBlockchainData = async () => {
-      try {
-        const web3 = new Web3(Web3.givenProvider || "HTTP://127.0.0.1:7545");
-        const accounts = await web3.eth.getAccounts();
-        setAccount(accounts[0]);
-        const netId = await web3.eth.net.getId();
-        const deployedNetwork = HelloWorld.networks[netId];
-        if (deployedNetwork) {
-          const instance = new web3.eth.Contract(HelloWorld.abi, deployedNetwork.address);
-          setContract(instance);
-          const storedMessage = await instance.methods.getMessage().call();
-          setMessage(storedMessage || "No message set");
-        } else {
-          setMessage("No contract loaded!");
+      if (window.ethereum) {
+        try {
+          const web3 = new Web3(window.ethereum);
+          
+          window.ethereum.on('accountsChanged', function (accounts) {
+            setAccount(accounts[0]);
+          });
+
+          window.ethereum.on('chainChanged', function () {
+            window.location.reload();
+          });
+
+          const accounts = await web3.eth.getAccounts();
+          if (accounts.length > 0) {
+            setAccount(accounts[0]);
+            setIsConnected(true);
+          }
+
+          const netId = await web3.eth.net.getId();
+          const deployedNetwork = HelloWorld.networks[netId];
+          
+          if (deployedNetwork) {
+            const instance = new web3.eth.Contract(HelloWorld.abi, deployedNetwork.address);
+            setContract(instance);
+            const storedMessage = await instance.methods.getMessage().call();
+            setMessage(storedMessage || "No message set");
+          } else {
+            setMessage("No contract loaded! Please make sure you're on the correct network.");
+          }
+        } catch (error) {
+          console.error("Error loading blockchain data:", error);
+          setMessage("Error loading contract. Please check your MetaMask connection.");
         }
-      } catch (error) {
-        console.error("Error loading blockchain data:", error);
-        setMessage("Hello World");
+      } else {
+        setMessage("Please install MetaMask to use this dApp!");
       }
     };
     loadBlockchainData();
@@ -34,24 +71,39 @@ const App = () => {
 
   const updateMessage = async () => {
     if (!contract) return;
+    
     try {
+      // If not connected, try to connect first
+      if (!isConnected) {
+        const connectedAccount = await connectWallet();
+        if (!connectedAccount) {
+          setMessage("Please connect your MetaMask wallet to continue.");
+          return;
+        }
+      }
+      
       await contract.methods.setMessage(input).send({ from: account });
       setMessage(input);
       setInput(""); // Clear input after successful update
     } catch (error) {
       console.error("Transaction failed", error);
+      setMessage("Transaction failed. Please try again.");
     }
   };
 
   return (
     <div className="app-wrapper">
       <div className="app-container">
-        <h1>Blockchain DApp</h1>
-        <p className="account-info">
-          <span>Connected Account:</span> {account || "Not connected"}
-        </p>
+        <h1>🎮 Blockchain Message Board</h1>
+        
+        {isConnected && (
+          <div className="account-info">
+            Connected Account: <span>{account}</span>
+          </div>
+        )}
+       
         <div className="message-display">
-          <h2>Message:</h2>
+          <h2>Current Message:</h2>
           <p>{message}</p>
         </div>
         <input
@@ -61,13 +113,24 @@ const App = () => {
           onChange={(e) => setInput(e.target.value)}
           className="message-input"
         />
-        <button
-          onClick={updateMessage}
-          disabled={!contract}
-          className="submit-button"
-        >
-          Set Message
-        </button>
+        <div className="button-group">
+          <button
+            onClick={updateMessage}
+            disabled={!contract}
+            className="submit-button"
+          >
+            Update Message
+          </button>
+          <button
+            onClick={() => {
+              setMessage("");
+              window.location.reload();
+            }}
+            className="refresh-button"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       <style>{`
@@ -116,6 +179,9 @@ const App = () => {
           color: #6b7280;
           margin-bottom: 24px;
           word-wrap: break-word;
+          background: #f3f4f6;
+          padding: 8px;
+          border-radius: 8px;
         }
 
         .account-info span {
@@ -162,6 +228,29 @@ const App = () => {
           box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
         }
 
+        .connect-button {
+          width: 100%;
+          padding: 12px;
+          background: #4f46e5;
+          color: #ffffff;
+          border: none;
+          border-radius: 8px;
+          font-size: 1rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s ease, transform 0.1s ease;
+          margin-bottom: 24px;
+        }
+
+        .connect-button:hover {
+          background: #4338ca;
+        }
+
+        .connect-button:active {
+          background: #3730a3;
+          transform: scale(0.98);
+        }
+
         .submit-button {
           width: 100%;
           padding: 12px;
@@ -173,6 +262,7 @@ const App = () => {
           font-weight: 600;
           cursor: pointer;
           transition: background 0.2s ease, transform 0.1s ease;
+          margin-bottom: 0;
         }
 
         .submit-button:hover:not(:disabled) {
@@ -185,6 +275,36 @@ const App = () => {
         }
 
         .submit-button:disabled {
+          background: #9ca3af;
+          cursor: not-allowed;
+        }
+
+        .button-group {
+          display: flex;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+
+        .refresh-button {
+          width: 100%;
+          padding: 12px;
+          background: #10b981;
+          color: #ffffff;
+          border: none;
+          border-radius: 8px;
+          font-size: 1rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s ease, transform 0.1s ease;
+        }
+        .refresh-button:hover:not(:disabled) {
+          background: #059669;
+        }
+        .refresh-button:active:not(:disabled) {
+          background: #047857;
+          transform: scale(0.98);
+        }
+        .refresh-button:disabled {
           background: #9ca3af;
           cursor: not-allowed;
         }

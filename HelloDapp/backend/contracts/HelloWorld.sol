@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 contract HelloWorld{
-    string private message;
-    constructor(string memory _message) {
-        message = _message;
+    string private usermessage;
+    constructor(string memory message) {
+        usermessage = message;
     }
-    function setMessage(string memory _message) public {
-        message = _message;
+    function setUserMessage(string memory message) public {
+        usermessage = message;
     }
-    function getMessage() public view returns(string memory){
-        return message;
+    function getUserMessage() public view returns(string memory){
+        return usermessage;
     }
 }
